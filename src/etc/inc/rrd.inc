@@ -169,6 +169,7 @@ function enable_rrd_graphing() {
 	$captiveportalloggedin = "-loggedin.rrd";
 	$ntpd = "ntpd.rrd";
 	$dhcpd = "-dhcpd.rrd";
+	$sshguard = "sshguard.rrd";
 
 	$rrdtool = "/usr/bin/nice -n20 /usr/local/bin/rrdtool";
 	$netstat = "/usr/bin/netstat";
@@ -200,6 +201,7 @@ function enable_rrd_graphing() {
 	$rrdcaptiveportalinterval = 60;
 	$rrdntpdinterval = 60;
 	$rrddhcpdinterval = 60;
+	$rrdsshguardinterval = 60;
 
 	$trafficvalid = $rrdtrafficinterval * 2;
 	$wirelessvalid = $rrdwirelessinterval * 2;
@@ -217,6 +219,7 @@ function enable_rrd_graphing() {
 	$captiveportalvalid = $rrdcaptiveportalinterval * 2;
 	$ntpdvalid = $rrdntpdinterval * 2;
 	$dhcpdvalid = $rrddhcpdinterval * 2;
+	$sshguardvalid = $rrdsshguardinterval * 2;
 
 	/* Assume 2*10GigE for now */
 	$downstream = 2500000000;
@@ -602,6 +605,41 @@ function enable_rrd_graphing() {
 		$rrdupdatesh .= "$rrdtool update $rrddbpath$ifname$proc N:\${CPU}:\${PROCS}\n";
 
 		/* End CPU statistics */
+		
+		/* sshguard, create sshguard statistics database */
+		if (!file_exists("$rrddbpath$sshguard")) {
+		    $rrdcreate = "$rrdtool create $rrddbpath$sshguard --step $rrdsshguardinterval ";
+		    $rrdcreate .= "DS:ssh:GAUGE:$sshguardvalid:0:10000 ";
+		    $rrdcreate .= "DS:https:GAUGE:$sshguardvalid:0:10000 ";
+		    $rrdcreate .= "RRA:AVERAGE:0.5:1:1200 ";
+		    $rrdcreate .= "RRA:AVERAGE:0.5:5:720 ";
+		    $rrdcreate .= "RRA:AVERAGE:0.5:60:1860 ";
+		    $rrdcreate .= "RRA:AVERAGE:0.5:1440:2284 ";
+		    $rrdcreate .= "RRA:MIN:0.5:1:1200 ";
+		    $rrdcreate .= "RRA:MIN:0.5:5:720 ";
+		    $rrdcreate .= "RRA:MIN:0.5:60:1860 ";
+		    $rrdcreate .= "RRA:MIN:0.5:1440:2284 ";
+		    $rrdcreate .= "RRA:MAX:0.5:1:1200 ";
+		    $rrdcreate .= "RRA:MAX:0.5:5:720 ";
+		    $rrdcreate .= "RRA:MAX:0.5:60:1860 ";
+		    $rrdcreate .= "RRA:MAX:0.5:1440:2284 ";
+		    $rrdcreate .= "RRA:LAST:0.5:1:1200 ";
+		    $rrdcreate .= "RRA:LAST:0.5:5:720 ";
+		    $rrdcreate .= "RRA:LAST:0.5:60:1860 ";
+		    $rrdcreate .= "RRA:LAST:0.5:1440:2284 ";
+		    
+		    create_new_rrd($rrdcreate);
+		    unset($rrdcreate);
+		}
+		
+		/* the sshguard table count entries. */
+		$rrdupdatesh .= "SSH_BANS=`/sbin/pfctl -t sshguard -T show | wc -l | awk '{print $1}'`\n";
+		/* the webConfiguratorlockout table count entries. */
+		$rrdupdatesh .= "HTTPS_BANS=`/sbin/pfctl -t webConfiguratorlockout -T show | wc -l | awk '{print $1}'`\n";
+		$rrdupdatesh .= "$rrdtool update $rrddbpath$sshguard N:\${SSH_BANS}:\${HTTPS_BANS}\n";
+		
+		/* End sshguard statistics */
+		
 
 		/* Memory, create Memory statistics database */
 		if (!file_exists("$rrddbpath$ifname$mem")) {
